@@ -1,0 +1,12 @@
+# Ignore large datasets
+unet-ipc-data/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+venv/
+.env/
+
+.DS_Store
