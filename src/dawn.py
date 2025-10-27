@@ -218,7 +218,6 @@ if __name__ == "__main__":
     transform_img = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor()
-        # Note: We could add normalization here if needed, e.g., transforms.Normalize(...)
     ])
     transform_mask = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -232,7 +231,7 @@ if __name__ == "__main__":
     model = DawnUNet(in_channels=3, out_classes=1, use_dawn=args.use_dawn)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    loss_fn = nn.BCEWithLogitsLoss()  # appropriate for binary segmentation (combines sigmoid + BCELoss)
+    loss_fn = nn.BCEWithLogitsLoss()  
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Training loop
@@ -268,8 +267,23 @@ if __name__ == "__main__":
         avg_iou = total_iou / len(train_loader.dataset)
 
         print(f"Epoch {epoch+1}/20 - Loss: {avg_loss:.4f}, Dice: {avg_dice:.3f}, IoU: {avg_iou:.3f}")
+
+    #TEST
+    model.eval()
+    total_iou = 0.0
+
+    with torch.no_grad():
+        for i, (x, y) in enumerate(loader):
+            x, y = x.to(device), y.to(device)
+            preds = (torch.sigmoid(model(x)) > 0.5).float()
+            intersection = (preds * y).sum()
+            union = preds.sum() + y.sum()
+            iou = (intersection + 1e-7) / (union - intersection + 1e-7)
+            total_iou += iou.item()
+            print(f"  ✅ Test {i+1}/{len(loader)} | IoU: {iou.item():.3f}")
+
+    print(f"\n Final Average IoU: {total_iou / len(loader):.3f}")
     
-    # === Visualize predictions on a few examples ===
     model.eval()
     os.makedirs("output_visual", exist_ok=True)
 
@@ -279,7 +293,6 @@ if __name__ == "__main__":
             logits = model(img)
             pred_mask = (torch.sigmoid(logits) > 0.5).float()
 
-            # Show only the first image in batch
             img_np = img[0].cpu().permute(1, 2, 0).numpy()
             pred_np = pred_mask[0][0].cpu().numpy()
             gt_np = gt_mask[0][0].cpu().numpy()
